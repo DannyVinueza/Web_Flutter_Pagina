@@ -39,7 +39,7 @@ void main() async {
     ),
     //home: const MyApp(),
     getPages: [
-      GetPage(name: '/login', page: () => const MyApp()),
+      GetPage(name: '/', page: () => const MyApp()),
       GetPage(
           name: '/dashboard',
           page: () => DashBoard(),
@@ -53,7 +53,7 @@ class AuthMiddleware extends GetMiddleware {
   RouteSettings? redirect(String? route) {
     final authController = Get.find<AuthController>();
     if (!authController.isAuthenticated.value) {
-      return RouteSettings(name: '/login');
+      return RouteSettings(name: '/');
     }
     return null; // Si el usuario está autenticado, no redirigimos
   }
@@ -83,7 +83,7 @@ class AuthController extends GetxController {
 
   void handleAuthChange(bool loggedIn) {
     if (!loggedIn) {
-      Get.offAllNamed('/login');
+      Get.offAllNamed('/');
     }
   }
 }

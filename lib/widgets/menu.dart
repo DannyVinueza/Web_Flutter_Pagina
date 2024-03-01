@@ -128,7 +128,7 @@ class _MenuState extends State<Menu> {
                         break;
                       case 7: //Exit
                         await FirebaseAuth.instance.signOut(); // Cierra sesión en Firebase Auth
-                        Get.offAllNamed('/login'); // Navega a la página de inicio de sesión
+                        Get.offAllNamed('/'); // Navega a la página de inicio de sesión
                         break;
                       //close the application
                     }
