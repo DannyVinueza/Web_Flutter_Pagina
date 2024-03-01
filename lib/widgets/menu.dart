@@ -29,13 +29,13 @@ class Menu extends StatefulWidget {
 class _MenuState extends State<Menu> {
   List<MenuModel> menu = [
     MenuModel(icon: 'assets/svg/home.svg', title: "Dashboard"),
-    MenuModel(icon: 'assets/svg/remote.svg', title: "Controller"),
+    MenuModel(icon: 'assets/svg/profile.svg', title: "Usuarios"),
     //I just remove some stuff in this code that I think it will not needed soon.
     //MenuModel(icon: 'assets/svg/share-2.svg', title: "Connect"),
-    MenuModel(icon: 'assets/svg/bell.svg', title: "Notification"),
+    MenuModel(icon: 'assets/svg/bell.svg', title: "Areas"),
     MenuModel(icon: 'assets/svg/history.svg', title: "History"),
     MenuModel(icon: 'assets/svg/setting.svg', title: "Settings"),
-    MenuModel(icon: 'assets/svg/profile.svg', title: "About Us"),
+    MenuModel(icon: 'assets/svg/remote.svg', title: "About Us"),
     MenuModel(icon: 'assets/svg/slack.svg', title: "Cultivate"),
     MenuModel(icon: 'assets/svg/signout.svg', title: "Exit"),
   ];

@@ -1,32 +1,58 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'result_screen.dart';
 
-void main() {
-  runApp(const MaterialApp(
-    home: ControllerPage(),
-  ));
-}
+final FirebaseFirestore db = FirebaseFirestore.instance;
+final FirebaseAuth auth = FirebaseAuth.instance;
 
 class ControllerPage extends StatefulWidget {
   const ControllerPage({Key? key}) : super(key: key);
 
   @override
-  // ignore: library_private_types_in_public_api
   _ControllerPageState createState() => _ControllerPageState();
 }
 
 class _ControllerPageState extends State<ControllerPage> {
   bool _isDeviceOn = false;
+  List<Map<String, dynamic>> users = [];
+
+  @override
+  void initState() {
+    super.initState();
+    getUsers().then((people) {
+      setState(() {
+        users = people;
+      });
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getUsers() async {
+    List<Map<String, dynamic>> users = [];
+    CollectionReference collectionReferenceUsers = db.collection('user');
+    QuerySnapshot queryUsers = await collectionReferenceUsers.get();
+    users = queryUsers.docs.map((DocumentSnapshot doc) {
+      return {
+        'uid': doc['uid'] ?? '',
+        'name': doc['name'] ?? '',
+        'email': doc['email'] ?? '',
+        'latitud': doc['latitud'] ?? '',
+        'longitud': doc['longitud'] ?? '',
+        'isActive': doc['isActive'] ?? false,
+        'imageUrl': doc['imageUrl'] ?? '',
+        'mobileNumber': doc['mobileNumber'] ?? '',
+        'userType': doc['userType'] ?? '',
+      };
+    }).toList();
+    print(users);
+    return users;
+  }
 
   void _toggleDevicePower() {
     setState(() {
       _isDeviceOn = !_isDeviceOn;
     });
-
-    // Implement the logic for sending power on/off command to the remote device
-    //print('Device power ${_isDeviceOn ? 'on' : 'off'}');
-    // You can replace the print statement with actual command sending logic
+    // Implementa la lógica para enviar comandos de encendido/apagado al dispositivo remoto
   }
 
   void _onButtonPressed(String action) {
@@ -38,119 +64,63 @@ class _ControllerPageState extends State<ControllerPage> {
     );
   }
 
+  void _toggleUserActiveStatus(int index) async {
+    setState(() {
+      users[index]['isActive'] = !users[index]['isActive'];
+    });
+
+    // Actualiza el estado activo/inactivo del usuario en la base de datos
+    await db.collection('user').doc(users[index]['uid']).update({
+      'isActive': users[index]['isActive'],
+    });
+  }
+
+  void _deleteUser(int index) async {
+    // Lógica para eliminar el usuario
+    await db.collection('user').doc(users[index]['uid']).delete();
+    setState(() {
+      users.removeAt(index);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     double buttonSize = MediaQuery.of(context).size.width * 0.25;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Controller Page'),
-        backgroundColor: Colors.black, // Use a modern color scheme
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pop(
-                context); // Navigating back to the previous page (menu page).
-          },
-        ),
+        title: const Text('Usuarios'),
+        backgroundColor: Colors.black,
       ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  'Lights',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            
+            const SizedBox(height: 20),
+            // Renderiza la lista de usuarios
+            for (var i = 0; i < users.length; i++)
+              ListTile(
+                title: Text(users[i]['name'] ?? ''),
+                subtitle: Text(users[i]['email'] ?? ''),
+                // Agrega botones de acciones (por ejemplo, editar o eliminar) según sea necesario
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.delete),
+                      onPressed: () => _deleteUser(i),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => _toggleUserActiveStatus(i),
+                      child:
+                          Text(users[i]['isActive'] ? 'Desactivar' : 'Activar'),
+                    ),
+                  ],
                 ),
-                Switch(
-                  value: _isDeviceOn,
-                  onChanged: (newValue) => _toggleDevicePower(),
-                  activeColor:
-                      Colors.green, // Use a modern color for the switch
-                ),
-              ],
-            ),
-            const SizedBox(height: 20), // Add spacing between sections
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildButton(
-                  'assets/svg/window.svg',
-                  'Windows Open',
-                  () => _onButtonPressed('Windows Open Successfully'),
-                  buttonSize,
-                ),
-                _buildButton(
-                  'assets/svg/window_close.svg',
-                  'Windows Close',
-                  () => _onButtonPressed('Windows Close Successfully'),
-                  buttonSize,
-                ),
-              ],
-            ),
-            const SizedBox(height: 10), // Adjust spacing
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildButton(
-                  'assets/svg/water.svg',
-                  'Water Plant',
-                  () => _onButtonPressed('Watering in Progress...'),
-                  buttonSize,
-                ),
-                _buildButton(
-                  'assets/svg/fan_open.svg',
-                  'Fan On',
-                  () => _onButtonPressed('Fan Turn On Successfully'),
-                  buttonSize,
-                ),
-                _buildButton(
-                  'assets/svg/fan_close.svg',
-                  'Fan Off',
-                  () => _onButtonPressed('Fan Turn Off Successfully'),
-                  buttonSize,
-                ),
-              ],
-            ),
-            // Add more buttons here
+              ),
+            // ... Puedes agregar más usuarios aquí
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildButton(
-    String iconPath,
-    String label,
-    void Function() onPressed,
-    double buttonSize,
-  ) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        // ignore: deprecated_member_use
-        primary: const Color(0xFF21222D),
-        side: const BorderSide(color: Colors.white),
-        minimumSize: Size(buttonSize, buttonSize),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SvgPicture.asset(
-            iconPath,
-            // ignore: deprecated_member_use
-            color: Colors.white, // Apply color to the icon if needed
-            width: 48, // Adjust the width of the SVG
-            height: 48, // Adjust the height of the SVG
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 14), // Use a modern font size
-          ),
-        ],
       ),
     );
   }

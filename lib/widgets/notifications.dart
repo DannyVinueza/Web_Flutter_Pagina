@@ -1,153 +1,169 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-class NotificationPage extends StatelessWidget {
+final FirebaseFirestore db = FirebaseFirestore.instance;
+Future<void> deleteDocumentByField(String collectionName, String fieldName, dynamic value) async {
+  try {
+    // Realizar una consulta para obtener el documento que coincide con el campo y valor proporcionados
+    QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+        .collection(collectionName)
+        .where(fieldName, isEqualTo: value)
+        .get();
+
+    // Verificar si se encontró algún documento
+    if (querySnapshot.docs.isNotEmpty) {
+      // Obtener el identificador del primer documento encontrado
+      String documentId = querySnapshot.docs.first.id;
+
+      // Eliminar el documento utilizando su identificador
+      await FirebaseFirestore.instance
+          .collection(collectionName)
+          .doc(documentId)
+          .delete();
+    } else {
+      print('No se encontró ningún documento con el campo $fieldName igual a $value');
+    }
+  } catch (e) {
+    print('Error al eliminar el documento: $e');
+  }
+}
+class NotificationPage extends StatefulWidget {
   const NotificationPage({Key? key}) : super(key: key);
+
+  @override
+  _NotificationPageState createState() => _NotificationPageState();
+}
+
+class _NotificationPageState extends State<NotificationPage> {
+  late TextEditingController _modalController;
+  List<Map<String, dynamic>> articles = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _modalController = TextEditingController();
+    getArticles().then((result) {
+      setState(() {
+        articles = result;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _modalController.dispose();
+    super.dispose();
+  }
+
+  Future<List<Map<String, dynamic>>> getArticles() async {
+    List<Map<String, dynamic>> articles = [];
+    CollectionReference collectionReferenceArticles = db.collection('calculations');
+    QuerySnapshot queryArticles = await collectionReferenceArticles.get();
+    articles = queryArticles.docs.map((DocumentSnapshot doc) {
+      Timestamp timestamp = doc['timestamp'] ?? Timestamp(0, 0);
+      DateTime dateTime = timestamp.toDate();
+      
+      return {
+        'area': doc['area'] ?? '',
+        'timestamp': dateTime,
+        'id': doc['id'] ?? ''
+      };
+    }).toList();
+    print(articles);
+    return articles;
+  }
+
+  Future<void> deleteArea(int index) async {
+    String areaId = articles[index]['id'];
+    print(areaId);
+    await deleteDocumentByField('calculations', 'id', areaId);
+    setState(() {
+      articles.removeAt(index);
+    });
+  }
+
+  // Método para mostrar el modal
+  void _showMapModal(String area) {
+    // Agrega la lógica para mostrar el modal con el mapa correspondiente a 'area'
+    // Puedes utilizar paquetes como 'google_maps_flutter' para integrar mapas en Flutter
+    // Aquí un ejemplo sencillo usando un AlertDialog
+    String areaTitle = area.toString();
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Mapa de $areaTitle'),
+          content: Text('Aquí puedes mostrar el mapa correspondiente a $areaTitle'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('Cerrar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notifications'),
+        title: const Text('Areas'),
         backgroundColor: const Color(0xFF171821),
       ),
       body: Center(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 400),
-          child: ListView.builder(
-            itemCount: _articles.length,
-            itemBuilder: (BuildContext context, int index) {
-              final item = _articles[index];
-              return Container(
-                height: 136,
-                margin:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8.0),
-                decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xFFE0E0E0)),
-                    borderRadius: BorderRadius.circular(8.0)),
-                padding: const EdgeInsets.all(8),
-                child: Row(
+        child: DataTable(
+          columns: const [
+            DataColumn(label: Text('Area')),
+            DataColumn(label: Text('ID')),
+            DataColumn(label: Text('Timestamp')),
+            DataColumn(label: Text('Actions')),
+          ],
+          rows: articles.map<DataRow>((article) {
+            return DataRow(
+              cells: [
+                DataCell(Text('${article['area']}')),
+                DataCell(Text('${article['id']}')),
+                DataCell(Text('${article['timestamp']}')),
+                DataCell(Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            item.title,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            "${item.author} · ${item.postedOn}",
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall, //.caption
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icons.bookmark_border_rounded,
-                              Icons.share,
-                              Icons.more_vert
-                            ].map((e) {
-                              return InkWell(
-                                onTap: () {},
-                                child: Padding(
-                                  padding: const EdgeInsets.only(right: 8.0),
-                                  child: Icon(e, size: 16),
-                                ),
-                              );
-                            }).toList(),
-                          )
-                        ],
-                      ),
+                    IconButton(
+                      icon: Icon(Icons.delete),
+                      onPressed: () {
+                        deleteArea(articles.indexOf(article));
+                      },
                     ),
-                    Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: Colors.grey,
-                        borderRadius: BorderRadius.circular(8.0),
-                        image: DecorationImage(
-                          fit: BoxFit.cover,
-                          image: NetworkImage(item.imageUrl),
-                        ),
-                      ),
+                    ElevatedButton(
+                      onPressed: () {
+                        showModalBottomSheet(
+                          context: context,
+                          builder: (context) {
+                            return Container(
+                              padding: EdgeInsets.all(16),
+                              child: Text('Contenido del Modal'),
+                            );
+                          },
+                        );
+                      },
+                      child: Text('Mapa'),
                     ),
                   ],
-                ),
-              );
-            },
-          ),
+                )),
+              ],
+            );
+          }).toList(),
         ),
       ),
     );
   }
 }
 
-class Article {
-  final String title;
-  final String imageUrl;
-  final String author;
-  final String postedOn;
-
-  Article({
-    required this.title,
-    required this.imageUrl,
-    required this.author,
-    required this.postedOn,
-  });
+void main() {
+  runApp(const MaterialApp(
+    home: NotificationPage(),
+  ));
 }
-
-final List<Article> _articles = [
-  Article(
-    title: "Cabbage Need Waters ‘daily time limit’ option",
-    author: "Garduino App",
-    imageUrl:
-        "https://www.asiafarming.com/wp-content/uploads/2018/03/Cabbage-Plantation..jpg",
-    postedOn: "Today: 10:29am",
-  ),
-  Article(
-    title: "Soil Moisture Level Dropdown",
-    imageUrl:
-        "https://www.thespruce.com/thmb/pgG0d_CaZm9-aXo9lAN_F0eS_js=/960x0/filters:no_upscale():max_bytes(150000):strip_icc()/healthy-soil-and-how-to-make-it-2539853-hero-fdf9b0280dca41cb8ae9614e6fc4a0b0.jpg",
-    author: "Garduino App",
-    postedOn: "4 hours ago",
-  ),
-  Article(
-    title: "WARNING: Water Level in Low Level",
-    author: "Garduino App",
-    imageUrl:
-        "https://assets-global.website-files.com/5d162672099ac31ecbb72092/5d684ef596d109f2e6fb0cf4_2019-05-27_-_social_media_warning_labels.jpeg",
-    postedOn: "2 days ago",
-  ),
-  Article(
-    title: "BULB status: OFF",
-    author: "Garduino App",
-    imageUrl: "https://static.dezeen.com/uploads/2016/01/light-bulb-dezeen.jpg",
-    postedOn: "22 hours ago",
-  ),
-  Article(
-    title: "Greenhouse Ventilation Status: ON",
-    author: "Garduino App",
-    imageUrl: "https://clipground.com/images/a-greenhouse-clipart-6.jpg",
-    postedOn: "4 hours ago",
-  ),
-  Article(
-    title: "Garduino Roof Status: OFF",
-    author: "Garduino App",
-    imageUrl:
-        "https://cdn2.vectorstock.com/i/1000x1000/51/51/greenhouse-single-icon-in-cartoon-style-vector-17095151.jpg",
-    postedOn: "10 days ago",
-  ),
-  Article(
-    title: "Garduino Roof Status: ON",
-    author: "Garduino App",
-    imageUrl:
-        "https://cdn2.vectorstock.com/i/1000x1000/51/51/greenhouse-single-icon-in-cartoon-style-vector-17095151.jpg",
-    postedOn: "10 days ago",
-  ),
-];
